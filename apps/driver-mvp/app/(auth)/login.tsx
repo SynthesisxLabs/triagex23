@@ -1,13 +1,20 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Dimensions, ScrollView } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  StyleSheet, Text, View, TextInput, TouchableOpacity, 
+  KeyboardAvoidingView, Platform, Dimensions, ScrollView, 
+  Alert, ActivityIndicator, Animated 
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../../utils/supabase';
 
 const { width } = Dimensions.get('window');
+
+type AuthStep = 'email' | 'otp';
 
 export default function DriverLoginScreen() {
   const router = useRouter();
@@ -15,14 +22,209 @@ export default function DriverLoginScreen() {
   const theme = Colors[colorScheme ?? 'light'];
   
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+  const [step, setStep] = useState<AuthStep>('email');
+  const [loading, setLoading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  
+  const otpRefs = useRef<(TextInput | null)[]>([]);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  const handleLogin = () => {
-    // In a real app, you'd validate credentials here
-    router.replace('/(tabs)');
+  // Countdown timer for resend
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  const animateTransition = (callback: () => void) => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      callback();
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
   };
 
+  // ── STEP 1: Send OTP ──
+  const handleSendOtp = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
+      Alert.alert('Error', 'Please enter your email address.');
+      return;
+    }
+
+    setLoading(true);
+    console.log('=== DRIVER OTP: SEND START ===');
+    console.log('[OTP] Email:', trimmedEmail);
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: trimmedEmail,
+        options: {
+          data: {
+            role: 'driver',
+          },
+        },
+      });
+
+      if (error) {
+        console.log('[OTP] Send error:', error.message);
+        Alert.alert('Error', error.message);
+        return;
+      }
+
+      console.log('[OTP] OTP sent successfully! ✓');
+      setCountdown(60);
+      animateTransition(() => setStep('otp'));
+    } catch (err: any) {
+      console.log('[OTP] Unexpected error:', err.message);
+      Alert.alert('Error', err.message || 'Failed to send verification code.');
+    } finally {
+      setLoading(false);
+      console.log('=== DRIVER OTP: SEND END ===');
+    }
+  };
+
+  // ── STEP 2: Verify OTP ──
+  const handleVerifyOtp = async () => {
+    const code = otpDigits.join('');
+    if (code.length !== 6) {
+      Alert.alert('Error', 'Please enter the complete 6-digit code.');
+      return;
+    }
+
+    setLoading(true);
+    console.log('=== DRIVER OTP: VERIFY START ===');
+    console.log('[OTP] Email:', email.trim().toLowerCase());
+    console.log('[OTP] Code:', code);
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: code,
+        type: 'email',
+      });
+
+      if (error) {
+        console.log('[OTP] Verify error:', error.message);
+        Alert.alert('Invalid Code', 'The code you entered is incorrect or expired. Please try again.');
+        return;
+      }
+
+      console.log('[OTP] Verified! User ID:', data.user?.id);
+      console.log('[OTP] Session:', !!data.session);
+
+      if (!data.session || !data.user) {
+        console.log('[OTP] No session after verify - unexpected');
+        Alert.alert('Error', 'Verification succeeded but no session was created. Please try again.');
+        return;
+      }
+
+      const userId = data.user.id;
+
+      // Ensure profile role is 'driver'
+      console.log('[OTP] Setting profile role to driver...');
+      await supabase
+        .from('profiles')
+        .update({ role: 'driver' })
+        .eq('id', userId);
+      console.log('[OTP] Profile role updated ✓');
+
+      // Check if driver record exists → route accordingly
+      console.log('[OTP] Checking for existing driver record...');
+      const { data: driverData } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('profile_id', userId)
+        .maybeSingle();
+
+      if (driverData) {
+        console.log('[OTP] Driver profile found → navigating to tabs');
+        router.replace('/(tabs)');
+      } else {
+        console.log('[OTP] New driver → navigating to profile setup');
+        router.replace('/(profileSetup)/profileSetUp');
+      }
+    } catch (err: any) {
+      console.log('[OTP] Unexpected error:', err.message);
+      Alert.alert('Error', err.message || 'Verification failed.');
+    } finally {
+      setLoading(false);
+      console.log('=== DRIVER OTP: VERIFY END ===');
+    }
+  };
+
+  // ── Resend OTP ──
+  const handleResend = async () => {
+    if (countdown > 0) return;
+    
+    setLoading(true);
+    console.log('[OTP] Resending OTP to:', email);
+    
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: { data: { role: 'driver' } },
+      });
+
+      if (error) {
+        Alert.alert('Error', error.message);
+      } else {
+        setCountdown(60);
+        setOtpDigits(['', '', '', '', '', '']);
+        Alert.alert('Code Sent', 'A new verification code has been sent to your email.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── OTP Input Handling ──
+  const handleOtpChange = (text: string, index: number) => {
+    const newDigits = [...otpDigits];
+    
+    // Handle paste (all 6 digits at once)
+    if (text.length > 1) {
+      const digits = text.replace(/\D/g, '').slice(0, 6).split('');
+      for (let i = 0; i < 6; i++) {
+        newDigits[i] = digits[i] || '';
+      }
+      setOtpDigits(newDigits);
+      // Focus last filled or last input
+      const lastIndex = Math.min(digits.length - 1, 5);
+      otpRefs.current[lastIndex]?.focus();
+      return;
+    }
+
+    newDigits[index] = text.replace(/\D/g, '');
+    setOtpDigits(newDigits);
+
+    // Auto-advance to next input
+    if (text && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyPress = (key: string, index: number) => {
+    if (key === 'Backspace' && !otpDigits[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+      const newDigits = [...otpDigits];
+      newDigits[index - 1] = '';
+      setOtpDigits(newDigits);
+    }
+  };
+
+  // ── RENDER ──
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView 
@@ -30,74 +232,144 @@ export default function DriverLoginScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Header */}
           <View style={styles.header}>
             <View style={[styles.iconContainer, { backgroundColor: theme.primary }]}>
               <Ionicons name="medical" size={40} color="#FFFFFF" />
             </View>
             <Text style={[styles.title, { color: theme.text }]}>TriageX Driver</Text>
-            <Text style={[styles.subtitle, { color: theme.text + '80' }]}>Log in to start saving lives</Text>
+            <Text style={[styles.subtitle, { color: theme.text + '80' }]}>
+              {step === 'email' ? 'Enter your email to get started' : 'Verify your identity'}
+            </Text>
           </View>
 
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: theme.text }]}>Driver ID / Email</Text>
-              <View style={[styles.inputContainer, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-                <Ionicons name="mail-outline" size={20} color={theme.text + '60'} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: theme.text }]}
-                  placeholder="Enter your ID or email"
-                  placeholderTextColor={theme.text + '40'}
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
+          <Animated.View style={[styles.form, { opacity: fadeAnim }]}>
+            {step === 'email' ? (
+              // ── EMAIL STEP ──
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: theme.text }]}>Email Address</Text>
+                  <View style={[styles.inputContainer, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
+                    <Ionicons name="mail-outline" size={20} color={theme.text + '60'} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.input, { color: theme.text }]}
+                      placeholder="driver@example.com"
+                      placeholderTextColor={theme.text + '40'}
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      autoFocus
+                    />
+                  </View>
+                </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: theme.text }]}>Password</Text>
-              <View style={[styles.inputContainer, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-                <Ionicons name="lock-closed-outline" size={20} color={theme.text + '60'} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: theme.text }]}
-                  placeholder="Enter your password"
-                  placeholderTextColor={theme.text + '40'}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={theme.text + '60'} />
+                <View style={styles.infoBox}>
+                  <Ionicons name="shield-checkmark-outline" size={18} color={theme.primary} />
+                  <Text style={[styles.infoText, { color: theme.text + '80' }]}>
+                    We&apos;ll send a 6-digit verification code to your email. No password needed.
+                  </Text>
+                </View>
+
+                <TouchableOpacity 
+                  onPress={handleSendOtp}
+                  activeOpacity={0.8}
+                  style={styles.primaryButton}
+                  disabled={loading}
+                >
+                  <LinearGradient
+                    colors={[theme.gradientStart, theme.gradientEnd]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.gradient}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <Text style={styles.primaryButtonText}>Send Code</Text>
+                        <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                      </>
+                    )}
+                  </LinearGradient>
                 </TouchableOpacity>
-              </View>
-            </View>
+              </>
+            ) : (
+              // ── OTP STEP ──
+              <>
+                <View style={styles.otpHeader}>
+                  <TouchableOpacity 
+                    onPress={() => animateTransition(() => { setStep('email'); setOtpDigits(['', '', '', '', '', '']); })}
+                    style={styles.changeEmailButton}
+                  >
+                    <Ionicons name="arrow-back" size={16} color={theme.primary} />
+                    <Text style={[styles.changeEmailText, { color: theme.primary }]}>Change email</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.sentToText, { color: theme.text + '99' }]}>
+                    Code sent to {email.trim().toLowerCase()}
+                  </Text>
+                </View>
 
-            <TouchableOpacity style={styles.forgotPassword}>
-              <Text style={{ color: theme.primary, fontFamily: 'InstrumentSans-SemiBold' }}>Forgot Password?</Text>
-            </TouchableOpacity>
+                <View style={styles.otpContainer}>
+                  {otpDigits.map((digit, index) => (
+                    <TextInput
+                      key={index}
+                      ref={(ref) => { otpRefs.current[index] = ref; }}
+                      style={[
+                        styles.otpInput,
+                        {
+                          backgroundColor: theme.secondary,
+                          borderColor: digit ? theme.primary : theme.border,
+                          color: theme.text,
+                          borderWidth: digit ? 2 : 1,
+                        },
+                      ]}
+                      value={digit}
+                      onChangeText={(text) => handleOtpChange(text, index)}
+                      onKeyPress={({ nativeEvent }) => handleOtpKeyPress(nativeEvent.key, index)}
+                      keyboardType="number-pad"
+                      maxLength={1}
+                      selectTextOnFocus
+                      autoFocus={index === 0}
+                    />
+                  ))}
+                </View>
 
-            <TouchableOpacity 
-              onPress={handleLogin}
-              activeOpacity={0.8}
-              style={styles.loginButton}
-            >
-              <LinearGradient
-                colors={[theme.gradientStart, theme.gradientEnd]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradient}
-              >
-                <Text style={styles.loginButtonText}>Go Online</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity 
+                  onPress={handleVerifyOtp}
+                  activeOpacity={0.8}
+                  style={styles.primaryButton}
+                  disabled={loading}
+                >
+                  <LinearGradient
+                    colors={[theme.gradientStart, theme.gradientEnd]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.gradient}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.primaryButtonText}>Verify & Continue</Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
 
-          <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: theme.text + '60' }]}>Don&apos;t have a driver account?</Text>
-            <TouchableOpacity>
-              <Text style={{ color: theme.primary, fontFamily: 'InstrumentSans-Bold' }}> Contact Admin</Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity 
+                  onPress={handleResend}
+                  disabled={countdown > 0}
+                  style={styles.resendButton}
+                >
+                  <Text style={[styles.resendText, { color: countdown > 0 ? theme.text + '40' : theme.primary }]}>
+                    {countdown > 0 ? `Resend code in ${countdown}s` : 'Resend verification code'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -116,29 +388,30 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 48,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
+    width: 88,
+    height: 88,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
     shadowColor: '#0C28FD',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-    elevation: 8,
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
   },
   title: {
-    fontSize: 28,
+    fontSize: 30,
     fontFamily: 'InstrumentSans-Bold',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
     fontFamily: 'InstrumentSans-Regular',
+    textAlign: 'center',
   },
   form: {
     flex: 1,
@@ -149,13 +422,13 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontFamily: 'InstrumentSans-SemiBold',
-    marginBottom: 8,
+    marginBottom: 10,
     marginLeft: 4,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 56,
+    height: 60,
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 16,
@@ -168,11 +441,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'InstrumentSans-Regular',
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 30,
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 32,
+    gap: 10,
   },
-  loginButton: {
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'InstrumentSans-Regular',
+    lineHeight: 18,
+  },
+  primaryButton: {
     height: 60,
     borderRadius: 16,
     overflow: 'hidden',
@@ -180,25 +464,58 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 6,
   },
   gradient: {
     flex: 1,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loginButtonText: {
+  primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontFamily: 'InstrumentSans-Bold',
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 40,
+  otpHeader: {
+    marginBottom: 32,
   },
-  footerText: {
+  changeEmailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 6,
+  },
+  changeEmailText: {
+    fontSize: 14,
+    fontFamily: 'InstrumentSans-SemiBold',
+  },
+  sentToText: {
     fontSize: 14,
     fontFamily: 'InstrumentSans-Regular',
+    marginLeft: 2,
+  },
+  otpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 36,
+    paddingHorizontal: 4,
+  },
+  otpInput: {
+    width: (width - 80) / 6,
+    height: 60,
+    borderRadius: 14,
+    textAlign: 'center',
+    fontSize: 24,
+    fontFamily: 'InstrumentSans-Bold',
+  },
+  resendButton: {
+    alignItems: 'center',
+    marginTop: 24,
+    paddingVertical: 12,
+  },
+  resendText: {
+    fontSize: 14,
+    fontFamily: 'InstrumentSans-SemiBold',
   },
 });

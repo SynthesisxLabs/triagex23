@@ -4,20 +4,62 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const trips = [
-  { id: '1', patient: 'Sarah Mitchell', date: '12 May, 2:30 PM', service: 'Basic Life Support', status: 'Completed', earnings: '$180', icon: 'medical' },
-  { id: '2', patient: 'Robert Chen', date: '11 May, 10:15 AM', service: 'Cardiac Care', status: 'Completed', earnings: '$250', icon: 'heart' },
-  { id: '3', patient: 'Emma Wilson', date: '11 May, 04:45 PM', service: 'Trauma Response', status: 'Completed', earnings: '$220', icon: 'warning' },
-  { id: '4', patient: 'James Taylor', date: '10 May, 01:20 PM', service: 'Basic Life Support', status: 'Completed', earnings: '$180', icon: 'medical' },
-  { id: '5', patient: 'Olivia Brown', date: '09 May, 09:00 AM', service: 'Emergency Transport', status: 'Cancelled', earnings: '$0', icon: 'close-circle' },
-];
+import { supabase } from '../../utils/supabase';
 
 export default function TripHistory() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
+  
+  const [trips, setTrips] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
-  const renderItem = ({ item }: { item: typeof trips[0] }) => (
+  React.useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: driver } = await supabase.from('drivers').select('id').eq('profile_id', user.id).single();
+      if (!driver) return;
+
+      const { data: rideData } = await supabase
+        .from('ride_requests')
+        .select(`
+          id,
+          status,
+          created_at,
+          patients (
+            profiles (
+              full_name
+            )
+          )
+        `)
+        .eq('driver_id', driver.id)
+        .order('created_at', { ascending: false });
+
+      if (rideData) {
+        const formattedTrips = rideData.map((ride: any) => ({
+          id: ride.id,
+          patient: ride.patients?.profiles?.full_name || 'Unknown Patient',
+          date: new Date(ride.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
+          service: 'Emergency Transport',
+          status: ride.status.charAt(0).toUpperCase() + ride.status.slice(1),
+          earnings: ride.status === 'completed' ? '$150' : '$0',
+          icon: ride.status === 'cancelled' ? 'close-circle' : 'medical'
+        }));
+        setTrips(formattedTrips);
+      }
+    } catch (err) {
+      console.error('Error fetching history:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity style={[styles.tripCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
       <View style={[styles.tripIcon, { backgroundColor: item.status === 'Completed' ? theme.primary + '15' : '#FF3B3015' }]}>
         <Ionicons 
@@ -59,7 +101,9 @@ export default function TripHistory() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={() => (
           <View style={styles.listHeader}>
-            <Text style={[styles.historyCount, { color: theme.text + '80' }]}>Recent (5)</Text>
+            <Text style={[styles.historyCount, { color: theme.text + '80' }]}>
+              {loading ? 'Loading...' : `Recent (${trips.length})`}
+            </Text>
             <TouchableOpacity>
               <Ionicons name="filter-outline" size={20} color={theme.primary} />
             </TouchableOpacity>

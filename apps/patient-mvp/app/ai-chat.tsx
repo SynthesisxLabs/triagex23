@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 type Message = {
   id: string;
@@ -14,6 +15,7 @@ type Message = {
 };
 
 export default function AIScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const [inputText, setInputText] = useState('');
@@ -71,6 +73,13 @@ export default function AIScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SafeAreaView style={styles.header} edges={['top']}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
+        </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>AI Doctor Chat</Text>
         <TouchableOpacity style={styles.infoButton}>
           <Ionicons name="information-circle-outline" size={24} color={theme.text} />
@@ -166,12 +175,16 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 15,
   },
+  backButton: {
+    padding: 4,
+    marginRight: 12,
+  },
   headerTitle: {
+    flex: 1,
     fontSize: 20,
     fontFamily: 'InstrumentSans-Bold',
   },

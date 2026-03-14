@@ -1,24 +1,163 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, Image, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, Image, Dimensions, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../../utils/supabase';
 
 const { width } = Dimensions.get('window');
+const FARE_PER_RIDE = 150;
 
 export default function DriverDashboard() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
+  
+  const [loading, setLoading] = useState(true);
+  const [driverName, setDriverName] = useState('');
+  const [driverId, setDriverId] = useState('');
   const [isOnline, setIsOnline] = useState(true);
+  
+  const [stats, setStats] = useState({ trips: '0', earnings: '$0', rating: '4.9' });
+  const [activeRequest, setActiveRequest] = useState<any>(null);
+  const [recentMission, setRecentMission] = useState<any>(null);
 
-  const stats = [
-    { id: '1', label: 'Trips', value: '12', icon: 'car-outline' },
-    { id: '2', label: 'Earnings', value: '$240', icon: 'cash-outline' },
-    { id: '3', label: 'Rating', value: '4.9', icon: 'star-outline' },
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  useEffect(() => {
+    if (!driverId) return;
+
+    checkPendingRequest();
+
+    const subscription = supabase
+      .channel('driver_requests')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ride_requests',
+          filter: `driver_id=eq.${driverId}`,
+        },
+        (payload) => {
+          if (payload.new && (payload.new as any).status === 'pending') {
+             fetchRequestDetails((payload.new as any).id);
+          } else if (payload.new && ((payload.new as any).status === 'cancelled' || (payload.new as any).status === 'accepted')) {
+             setActiveRequest(null);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [driverId]);
+
+  const checkPendingRequest = async () => {
+    try {
+      const { data } = await supabase
+        .from('ride_requests')
+        .select(`
+          id,
+          patients ( profiles ( full_name ) )
+        `)
+        .eq('driver_id', driverId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+        
+      if (data) {
+        setActiveRequest({
+          id: data.id,
+          patientName: (data.patients as any)?.profiles?.full_name || 'Emergency Patient'
+        });
+      }
+    } catch (e) {
+      // no pending request
+    }
+  };
+
+  const fetchRequestDetails = async (requestId: string) => {
+    try {
+      const { data } = await supabase
+        .from('ride_requests')
+        .select(`
+          id,
+          patients ( profiles ( full_name ) )
+        `)
+        .eq('id', requestId)
+        .single();
+        
+      if (data) {
+        setActiveRequest({
+          id: data.id,
+          patientName: (data.patients as any)?.profiles?.full_name || 'Emergency Patient'
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+      if (profile) setDriverName(profile.full_name);
+
+      const { data: driver } = await supabase.from('drivers').select('id').eq('profile_id', user.id).single();
+      if (!driver) return;
+      
+      setDriverId(driver.id);
+
+      const { data: rides } = await supabase
+        .from('ride_requests')
+        .select(`
+          id, created_at, status,
+          patients ( profiles ( full_name ) )
+        `)
+        .eq('driver_id', driver.id)
+        .order('created_at', { ascending: false });
+
+      if (rides) {
+        const completedRides = rides.filter(r => r.status === 'completed');
+        
+        setStats({
+          trips: completedRides.length.toString(),
+          earnings: `$${completedRides.length * FARE_PER_RIDE}`,
+          rating: '4.9' 
+        });
+
+        if (completedRides.length > 0) {
+          const recent = completedRides[0];
+          setRecentMission({
+            patientName: (recent.patients as any)?.profiles?.full_name || 'Patient',
+            date: new Date(recent.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
+            price: `$${FARE_PER_RIDE}`
+          });
+        }
+      }
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const displayStats = [
+    { id: '1', label: 'Trips', value: stats.trips, icon: 'car-outline' },
+    { id: '2', label: 'Earnings', value: stats.earnings, icon: 'cash-outline' },
+    { id: '3', label: 'Rating', value: stats.rating, icon: 'star-outline' },
   ];
 
   return (
@@ -27,7 +166,9 @@ export default function DriverDashboard() {
         <View style={styles.headerTop}>
           <View>
             <Text style={[styles.greeting, { color: theme.text + '99' }]}>Welcome back,</Text>
-            <Text style={[styles.driverName, { color: theme.text }]}>John Doe</Text>
+            <Text style={[styles.driverName, { color: theme.text }]}>
+              {loading ? 'Loading...' : (driverName || 'Driver')}
+            </Text>
           </View>
           <View style={[styles.statusToggle, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
             <Text style={[styles.statusText, { color: isOnline ? '#4CAF50' : theme.text + '60' }]}>
@@ -47,7 +188,7 @@ export default function DriverDashboard() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Stats Row */}
         <View style={styles.statsRow}>
-          {stats.map((stat) => (
+          {displayStats.map((stat) => (
             <View key={stat.id} style={[styles.statBox, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
               <Ionicons name={stat.icon as any} size={20} color={theme.primary} />
               <Text style={[styles.statValue, { color: theme.text }]}>{stat.value}</Text>
@@ -56,19 +197,19 @@ export default function DriverDashboard() {
           ))}
         </View>
 
-        {/* Incoming Mission Alert (Simulation) */}
-        {isOnline && (
+        {/* Incoming Mission Alert */}
+        {isOnline && activeRequest && (
           <TouchableOpacity 
             style={[styles.missionAlert, { backgroundColor: theme.primary }]}
             activeOpacity={0.9}
-            onPress={() => router.push('/active-mission')}
+            onPress={() => router.push({ pathname: '/active-mission', params: { requestId: activeRequest.id } })}
           >
             <View style={styles.alertIcon}>
               <Ionicons name="notifications" size={24} color="#FFFFFF" />
             </View>
             <View style={styles.alertContent}>
               <Text style={styles.alertTitle}>New Emergency Request!</Text>
-              <Text style={styles.alertSubtitle}>Patient: Sarah Mitchell • 1.2km away</Text>
+              <Text style={styles.alertSubtitle}>Patient: {activeRequest.patientName} • Just now</Text>
             </View>
             <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
           </TouchableOpacity>
@@ -116,18 +257,24 @@ export default function DriverDashboard() {
             <Text style={{ color: theme.primary, fontFamily: 'InstrumentSans-Bold' }}>View All</Text>
           </TouchableOpacity>
         </View>
-        <View style={[styles.historyCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-          <View style={styles.historyInfo}>
-            <View style={[styles.historyIcon, { backgroundColor: theme.primary + '15' }]}>
-              <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+        {recentMission ? (
+          <View style={[styles.historyCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
+            <View style={styles.historyInfo}>
+              <View style={[styles.historyIcon, { backgroundColor: theme.primary + '15' }]}>
+                <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+              </View>
+              <View style={styles.historyText}>
+                <Text style={[styles.patientName, { color: theme.text }]}>{recentMission.patientName}</Text>
+                <Text style={[styles.tripInfo, { color: theme.text + '60' }]}>Emergency Transport • {recentMission.date}</Text>
+              </View>
+              <Text style={[styles.tripPrice, { color: theme.text }]}>{recentMission.price}</Text>
             </View>
-            <View style={styles.historyText}>
-              <Text style={[styles.patientName, { color: theme.text }]}>Sarah Mitchell</Text>
-              <Text style={[styles.tripInfo, { color: theme.text + '60' }]}>Basic Life Support • 12 May, 2:30 PM</Text>
-            </View>
-            <Text style={[styles.tripPrice, { color: theme.text }]}>$180</Text>
           </View>
-        </View>
+        ) : (
+          <View style={[styles.historyCard, { backgroundColor: theme.secondary, borderColor: theme.border, alignItems: 'center', paddingVertical: 24 }]}>
+            <Text style={{ color: theme.text + '80', fontFamily: 'InstrumentSans-Regular' }}>No recent missions</Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );

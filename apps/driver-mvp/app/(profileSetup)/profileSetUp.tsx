@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Platform, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Platform, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../../utils/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -16,25 +16,125 @@ export default function DriverProfileSetUp() {
   const theme = Colors[colorScheme ?? 'light'];
 
   const [name, setName] = useState('');
-  const [date, setDate] = useState(new Date());
-  const [showPicker, setShowPicker] = useState(false);
-  const [dobText, setDobText] = useState('');
-  const [badgeId, setBadgeId] = useState('');
+  const [phone, setPhone] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
-  const [ambulanceType, setAmbulanceType] = useState('');
-  const [plateNumber, setPlateNumber] = useState('');
+  const [vehicleType, setVehicleType] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const ambulanceTypes = ['Basic (BLS)', 'Advanced (ALS)', 'Cardiac Care', 'Trauma'];
+  const vehicleTypes = ['Basic (BLS)', 'Advanced (ALS)', 'Cardiac Care', 'Trauma'];
 
-  const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    const currentDate = selectedDate || date;
-    setShowPicker(Platform.OS === 'ios');
-    setDate(currentDate);
-    
-    const day = currentDate.getDate().toString().padStart(2, '0');
-    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-    const year = currentDate.getFullYear();
-    setDobText(`${day} / ${month} / ${year}`);
+  const handleComplete = async () => {
+    if (!name || !licenseNumber || !vehicleType || !vehicleNumber) {
+      Alert.alert('Incomplete', 'Please fill all required fields to continue.');
+      return;
+    }
+
+    setLoading(true);
+    console.log('=== DRIVER PROFILE SETUP START ===');
+
+    try {
+      // Step 1: Get current session
+      console.log('[PROFILE] Getting current session...');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      console.log('[PROFILE] Session found:', !!session);
+      console.log('[PROFILE] Session error:', sessionError?.message);
+
+      if (sessionError || !session) {
+        console.log('[PROFILE] No session! Trying to get user from auth state...');
+        const { data: { user } } = await supabase.auth.getUser();
+        console.log('[PROFILE] Auth user:', user?.id);
+        
+        if (!user) {
+          throw new Error('Not authenticated. Please go back and log in again.');
+        }
+      }
+
+      const userId = session?.user?.id;
+      if (!userId) {
+        throw new Error('Could not determine user ID. Please log in again.');
+      }
+
+      console.log('[PROFILE] User ID:', userId);
+      console.log('[PROFILE] User email:', session.user.email);
+
+      // Step 2: Update the profiles table (full_name, phone, role)
+      console.log('[PROFILE] Updating profiles table...');
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          full_name: name,
+          phone: phone || null,
+          role: 'driver',
+        })
+        .eq('id', userId);
+
+      if (profileError) {
+        console.log('[PROFILE] Profile update error:', profileError.message);
+        throw new Error('Failed to update profile: ' + profileError.message);
+      }
+      console.log('[PROFILE] Profile updated ✓');
+
+      // Step 3: Check if a driver record already exists (prevent duplicates)
+      console.log('[PROFILE] Checking for existing driver record...');
+      const { data: existingDriver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('profile_id', userId)
+        .maybeSingle();
+
+      if (existingDriver) {
+        // Update existing driver record
+        console.log('[PROFILE] Driver record exists, updating...');
+        const { error: updateErr } = await supabase
+          .from('drivers')
+          .update({
+            license_number: licenseNumber,
+            vehicle_number: vehicleNumber,
+            vehicle_type: vehicleType,
+            status: 'offline',
+          })
+          .eq('profile_id', userId);
+
+        if (updateErr) {
+          console.log('[PROFILE] Driver update error:', updateErr.message);
+          throw new Error('Failed to update driver record: ' + updateErr.message);
+        }
+        console.log('[PROFILE] Driver record updated ✓');
+      } else {
+        // Insert new driver record
+        console.log('[PROFILE] Inserting new driver record...');
+        console.log('[PROFILE] Data:', { profile_id: userId, license_number: licenseNumber, vehicle_number: vehicleNumber, vehicle_type: vehicleType });
+        
+        const { error: driverError } = await supabase
+          .from('drivers')
+          .insert({
+            profile_id: userId,
+            license_number: licenseNumber,
+            vehicle_number: vehicleNumber,
+            vehicle_type: vehicleType,
+            status: 'offline',
+            is_verified: false,
+          });
+
+        if (driverError) {
+          console.log('[PROFILE] Driver insert error:', driverError.message, driverError.details, driverError.hint);
+          throw new Error('Failed to create driver record: ' + driverError.message);
+        }
+        console.log('[PROFILE] Driver record created ✓');
+      }
+
+      console.log('[PROFILE] All data saved! Navigating to tabs...');
+      console.log('=== DRIVER PROFILE SETUP COMPLETE ===');
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      console.log('[PROFILE] FAILED:', error.message);
+      console.log('=== DRIVER PROFILE SETUP FAILED ===');
+      Alert.alert('Setup Failed', error.message || 'Could not complete profile setup.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -57,7 +157,7 @@ export default function DriverProfileSetUp() {
           <Text style={[styles.sectionHeader, { color: theme.primary }]}>Personal Information</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Full Name</Text>
+            <Text style={[styles.label, { color: theme.text }]}>Full Name *</Text>
             <View style={[styles.inputContainer, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
               <TextInput
                 style={[styles.input, { color: theme.text }]}
@@ -70,46 +170,24 @@ export default function DriverProfileSetUp() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Date of Birth</Text>
-            <TouchableOpacity 
-              activeOpacity={0.7}
-              onPress={() => setShowPicker(true)}
-              style={[styles.inputContainer, { backgroundColor: theme.secondary, borderColor: theme.border }]}
-            >
-              <Text style={[styles.input, { color: dobText ? theme.text : theme.text + '40' }]}>
-                {dobText || 'DD / MM / YYYY'}
-              </Text>
-              <Ionicons name="calendar-outline" size={20} color={theme.text + '80'} />
-            </TouchableOpacity>
-            {showPicker && (
-              <DateTimePicker
-                value={date}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onDateChange}
-                maximumDate={new Date()}
+            <Text style={[styles.label, { color: theme.text }]}>Phone Number</Text>
+            <View style={[styles.inputContainer, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
+              <TextInput
+                style={[styles.input, { color: theme.text }]}
+                placeholder="Ex: +91 9876543210"
+                placeholderTextColor={theme.text + '40'}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
               />
-            )}
+            </View>
           </View>
 
           {/* Section: Professional Info */}
           <Text style={[styles.sectionHeader, { color: theme.primary, marginTop: 10 }]}>Professional Details</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Badge ID / Employee Code</Text>
-            <View style={[styles.inputContainer, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-              <TextInput
-                style={[styles.input, { color: theme.text }]}
-                placeholder="Ex: TX-8829"
-                placeholderTextColor={theme.text + '40'}
-                value={badgeId}
-                onChangeText={setBadgeId}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Driving License Number</Text>
+            <Text style={[styles.label, { color: theme.text }]}>Driving License Number *</Text>
             <View style={[styles.inputContainer, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
               <TextInput
                 style={[styles.input, { color: theme.text }]}
@@ -125,23 +203,23 @@ export default function DriverProfileSetUp() {
           <Text style={[styles.sectionHeader, { color: theme.primary, marginTop: 10 }]}>Vehicle Details</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Ambulance Type</Text>
+            <Text style={[styles.label, { color: theme.text }]}>Ambulance Type *</Text>
             <View style={styles.chipContainer}>
-              {ambulanceTypes.map((type) => (
+              {vehicleTypes.map((type) => (
                 <TouchableOpacity
                   key={type}
-                  onPress={() => setAmbulanceType(type)}
+                  onPress={() => setVehicleType(type)}
                   style={[
                     styles.chip,
                     { 
-                      backgroundColor: ambulanceType === type ? theme.primary : theme.secondary,
-                      borderColor: ambulanceType === type ? theme.primary : theme.border
+                      backgroundColor: vehicleType === type ? theme.primary : theme.secondary,
+                      borderColor: vehicleType === type ? theme.primary : theme.border
                     }
                   ]}
                 >
                   <Text style={[
                     styles.chipText, 
-                    { color: ambulanceType === type ? '#FFFFFF' : theme.text }
+                    { color: vehicleType === type ? '#FFFFFF' : theme.text }
                   ]}>
                     {type}
                   </Text>
@@ -151,14 +229,14 @@ export default function DriverProfileSetUp() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Vehicle Plate Number</Text>
+            <Text style={[styles.label, { color: theme.text }]}>Vehicle Plate Number *</Text>
             <View style={[styles.inputContainer, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="Ex: KA 01 AB 1234"
                 placeholderTextColor={theme.text + '40'}
-                value={plateNumber}
-                onChangeText={setPlateNumber}
+                value={vehicleNumber}
+                onChangeText={setVehicleNumber}
                 autoCapitalize="characters"
               />
             </View>
@@ -167,8 +245,9 @@ export default function DriverProfileSetUp() {
 
         <TouchableOpacity 
           activeOpacity={0.8}
-          onPress={() => router.replace('/(tabs)')}
+          onPress={handleComplete}
           style={styles.completeButtonContainer}
+          disabled={loading}
         >
           <LinearGradient
             colors={[theme.gradientStart, theme.gradientEnd]}
@@ -176,8 +255,14 @@ export default function DriverProfileSetUp() {
             end={{ x: 1, y: 0 }}
             style={styles.completeButton}
           >
-            <Text style={styles.completeButtonText}>Finish Setup</Text>
-            <Ionicons name="checkmark-done" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text style={styles.completeButtonText}>Finish Setup</Text>
+                <Ionicons name="checkmark-done" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+              </>
+            )}
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>

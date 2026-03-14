@@ -149,7 +149,15 @@ export default function ProfileSetUpStep1() {
 
         <TouchableOpacity 
           activeOpacity={0.8}
-          onPress={() => router.push('/(profileSetup)/profileSetUp-2')}
+          onPress={() => router.push({
+            pathname: '/(profileSetup)/profileSetUp-2',
+            params: {
+              name,
+              dobIso: date.toISOString(),
+              gender,
+              bloodGroup
+            }
+          })}
           style={styles.nextButtonContainer}
         >
           <LinearGradient

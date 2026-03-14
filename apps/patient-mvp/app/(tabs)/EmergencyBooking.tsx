@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../../utils/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -12,6 +13,8 @@ export default function EmergencyBookingScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'searching' | 'booked'>('idle');
+  const [currentRideId, setCurrentRideId] = useState<string | null>(null);
+  const [driverInfo, setDriverInfo] = useState<any>(null);
   
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -31,17 +34,75 @@ export default function EmergencyBookingScreen() {
           }),
         ])
       ).start();
-
-      // Simulate booking
-      const timer = setTimeout(() => {
-        setBookingStatus('booked');
-      }, 4000);
-      return () => clearTimeout(timer);
+    } else {
+      pulseAnim.stopAnimation();
     }
   }, [bookingStatus]);
 
-  const handleBook = () => {
+  const handleBook = async () => {
     setBookingStatus('searching');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
+      const { data: patient } = await supabase.from('patients').select('id').eq('profile_id', user.id).single();
+      if (!patient) throw new Error("No patient record found");
+
+      const { data: hospital } = await supabase.from('hospitals').select('id').limit(1).single();
+      if (!hospital) throw new Error("No hospitals available");
+
+      const { data: ride, error } = await supabase.from('ride_requests').insert({
+        patient_id: patient.id,
+        hospital_id: hospital.id,
+        pickup_address: '123 Healthcare Ave, Medical District',
+        status: 'requested'
+      }).select().single();
+
+      if (error) throw error;
+      
+      setCurrentRideId(ride.id);
+
+      const channel = supabase.channel(`public:ride_requests:id=eq.${ride.id}`)
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'ride_requests', 
+          filter: `id=eq.${ride.id}` 
+        }, async (payload: any) => {
+          if (payload.new.status === 'accepted' && payload.new.driver_id) {
+            const { data: driverData } = await supabase
+              .from('drivers')
+              .select(`
+                vehicle_number,
+                profiles (
+                  full_name,
+                  avatar_url
+                )
+              `)
+              .eq('id', payload.new.driver_id)
+              .single();
+              
+            setDriverInfo(driverData);
+            setBookingStatus('booked');
+            supabase.removeChannel(channel);
+          }
+        })
+        .subscribe();
+        
+    } catch (error) {
+      console.error('Error booking emergency:', error);
+      setBookingStatus('idle');
+      alert('Failed to book emergency. Please try again.');
+    }
+  };
+
+  const handleCancel = async () => {
+    setBookingStatus('idle');
+    if (currentRideId) {
+      supabase.removeAllChannels();
+      await supabase.from('ride_requests').update({ status: 'cancelled' }).eq('id', currentRideId);
+      setCurrentRideId(null);
+    }
   };
 
   return (
@@ -120,7 +181,7 @@ export default function EmergencyBookingScreen() {
             </Animated.View>
             <Text style={[styles.statusTitle, { color: theme.text }]}>Locating Ambulance...</Text>
             <Text style={[styles.statusSubtitle, { color: theme.text + '80' }]}>Connecting you to the nearest emergency service</Text>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setBookingStatus('idle')}>
+            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
               <Text style={{ color: '#FF4B2B', fontFamily: 'InstrumentSans-Bold' }}>Cancel Request</Text>
             </TouchableOpacity>
           </View>
@@ -134,12 +195,12 @@ export default function EmergencyBookingScreen() {
             
             <View style={[styles.driverCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
               <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=100&auto=format&fit=crop' }} 
+                source={{ uri: driverInfo?.profiles?.avatar_url || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=100&auto=format&fit=crop' }} 
                 style={styles.driverImage}
               />
               <View style={styles.driverInfo}>
-                <Text style={[styles.driverName, { color: theme.text }]}>John Smith</Text>
-                <Text style={[styles.vehicleInfo, { color: theme.text + '80' }]}>Ambulance #402 • AB-1234</Text>
+                <Text style={[styles.driverName, { color: theme.text }]}>{driverInfo?.profiles?.full_name || 'Driver Assigned'}</Text>
+                <Text style={[styles.vehicleInfo, { color: theme.text + '80' }]}>Ambulance • {driverInfo?.vehicle_number || 'N/A'}</Text>
               </View>
               <TouchableOpacity style={[styles.callButton, { backgroundColor: theme.primary }]}>
                 <Ionicons name="call" size={20} color="#FFFFFF" />

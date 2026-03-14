@@ -1,15 +1,74 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../../utils/supabase';
 
 export default function DriverProfile() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
+
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+  const [stats, setStats] = useState({ trips: '0', rating: '4.9', experience: '2 Years Exp.' });
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      const { data: driverData } = await supabase.from('drivers').select('id, created_at').eq('profile_id', user.id).single();
+      
+      let trips = '0';
+      let exp = 'New Driver';
+      
+      if (driverData) {
+        setProfile({ ...profileData, badgeId: driverData.id.split('-')[0].toUpperCase() });
+        const { count } = await supabase.from('ride_requests').select('*', { count: 'exact', head: true }).eq('driver_id', driverData.id).eq('status', 'completed');
+        if (count) trips = count.toString();
+        
+        // Calculate experience
+        const createdDate = new Date(driverData.created_at);
+        const now = new Date();
+        const diffYears = now.getFullYear() - createdDate.getFullYear();
+        const diffMonths = (now.getFullYear() - createdDate.getFullYear()) * 12 + now.getMonth() - createdDate.getMonth();
+        
+        if (diffYears >= 1) {
+            exp = `${diffYears} Yr${diffYears > 1 ? 's' : ''} Exp.`;
+        } else if (diffMonths >= 1) {
+            exp = `${diffMonths} Mo${diffMonths > 1 ? 's' : ''} Exp.`;
+        }
+      } else {
+        setProfile(profileData);
+      }
+      
+      setStats({ trips, rating: '4.9', experience: exp });
+
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      router.replace('/(auth)/onboarding');
+    }
+  };
 
   const menuItems = [
     { title: 'Personal Information', icon: 'person-outline', color: '#0C28FD' },
@@ -29,23 +88,29 @@ export default function DriverProfile() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?q=80&w=200&auto=format&fit=crop' }} 
-            style={styles.avatar}
-          />
-          <Text style={[styles.name, { color: theme.text }]}>John Doe</Text>
-          <Text style={[styles.id, { color: theme.text + '60' }]}>Badge ID: TX-8829</Text>
-          
-          <View style={styles.badgeRow}>
-            <View style={[styles.ratingBadge, { backgroundColor: '#FFD70020' }]}>
-              <Ionicons name="star" size={14} color="#FFD700" />
-              <Text style={styles.badgeText}>4.9 (240 trips)</Text>
-            </View>
-            <View style={[styles.experienceBadge, { backgroundColor: theme.primary + '10' }]}>
-              <Ionicons name="time" size={14} color={theme.primary} />
-              <Text style={[styles.badgeText, { color: theme.primary }]}>2 Years Exp.</Text>
-            </View>
-          </View>
+          {loading ? (
+             <ActivityIndicator size="large" color={theme.primary} style={{ marginVertical: 20 }} />
+          ) : (
+            <>
+              <Image 
+                source={{ uri: profile?.avatar_url || 'https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?q=80&w=200&auto=format&fit=crop' }} 
+                style={styles.avatar}
+              />
+              <Text style={[styles.name, { color: theme.text }]}>{profile?.full_name || 'Driver Name'}</Text>
+              <Text style={[styles.id, { color: theme.text + '60' }]}>Badge ID: {profile?.badgeId ? `TX-${profile.badgeId.substring(0, 4)}` : 'Pending'}</Text>
+              
+              <View style={styles.badgeRow}>
+                <View style={[styles.ratingBadge, { backgroundColor: '#FFD70020' }]}>
+                  <Ionicons name="star" size={14} color="#FFD700" />
+                  <Text style={styles.badgeText}>{stats.rating} ({stats.trips} trips)</Text>
+                </View>
+                <View style={[styles.experienceBadge, { backgroundColor: theme.primary + '10' }]}>
+                  <Ionicons name="time" size={14} color={theme.primary} />
+                  <Text style={[styles.badgeText, { color: theme.primary }]}>{stats.experience}</Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Menu Section */}
@@ -67,7 +132,7 @@ export default function DriverProfile() {
         {/* Action Buttons */}
         <TouchableOpacity 
           style={styles.logoutButton}
-          onPress={() => router.replace('/(auth)/onboarding')}
+          onPress={handleLogout}
         >
           <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
           <Text style={styles.logoutText}>Log Out Account</Text>

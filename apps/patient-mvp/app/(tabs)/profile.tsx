@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '@/utils/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -12,6 +13,42 @@ export default function ProfileScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
+
+  const [profile, setProfile] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+      if (data) setProfile(data);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    } finally {
+      router.replace('/(auth)/onboarding');
+    }
+  };
 
   const menuItems = [
     { id: '1', title: 'Medical Records', icon: 'document-text-outline', color: '#4CAF50' },
@@ -32,11 +69,15 @@ export default function ProfileScreen() {
         {/* Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
           <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop' }} 
+            source={{ uri: profile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop' }} 
             style={styles.avatar}
           />
-          <Text style={[styles.name, { color: theme.text }]}>Daksh Hiran</Text>
-          <Text style={[styles.email, { color: theme.text + '80' }]}>daksh.hiran@example.com</Text>
+          <Text style={[styles.name, { color: theme.text }]}>
+            {loading ? 'Loading...' : profile?.full_name || 'Patient Profile'}
+          </Text>
+          <Text style={[styles.email, { color: theme.text + '80' }]}>
+            {loading ? 'Loading...' : profile?.email || 'No email attached'}
+          </Text>
           <TouchableOpacity style={[styles.editButton, { backgroundColor: theme.primary + '10' }]}>
             <Text style={{ color: theme.primary, fontFamily: 'InstrumentSans-Bold' }}>Edit Profile</Text>
           </TouchableOpacity>
@@ -78,7 +119,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>

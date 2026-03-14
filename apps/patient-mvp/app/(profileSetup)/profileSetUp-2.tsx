@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Platform, KeyboardAvoidingView, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { supabase } from '../../utils/supabase';
 
 export default function ProfileSetUpStep2() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
 
@@ -15,10 +17,129 @@ export default function ProfileSetUpStep2() {
   const [conditions, setConditions] = useState('');
   const [emergencyName, setEmergencyName] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const finishSetup = () => {
-    // In a real app, save data here
-    router.replace('/(tabs)');
+  const finishSetup = async () => {
+    setLoading(true);
+    console.log('=== PATIENT PROFILE SETUP START ===');
+    console.log('[PROFILE] Params received:', JSON.stringify(params));
+
+    try {
+      // Step 1: Get session
+      console.log('[PROFILE] Getting current session...');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      console.log('[PROFILE] Session found:', !!session);
+      console.log('[PROFILE] Session error:', sessionError?.message);
+
+      if (sessionError || !session) {
+        console.log('[PROFILE] No session! Trying getUser...');
+        const { data: { user } } = await supabase.auth.getUser();
+        console.log('[PROFILE] Auth user from getUser:', user?.id);
+        
+        if (!user) {
+          throw new Error('Not authenticated. Please go back and log in again.');
+        }
+      }
+
+      const userId = session?.user?.id;
+      if (!userId) {
+        throw new Error('Could not determine user ID. Please log in again.');
+      }
+
+      console.log('[PROFILE] User ID:', userId);
+      console.log('[PROFILE] User email:', session.user.email);
+
+      // Step 2: Update full_name and phone in profiles
+      console.log('[PROFILE] Updating profiles table with name:', params.name);
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          full_name: (params.name as string) || 'New Patient',
+          role: 'patient',
+        })
+        .eq('id', userId);
+      
+      if (profileError) {
+        console.log('[PROFILE] Profile update error:', profileError.message);
+        throw new Error('Failed to update profile: ' + profileError.message);
+      }
+      console.log('[PROFILE] Profile updated ✓');
+
+      // Step 3: Check for existing patient record
+      console.log('[PROFILE] Checking for existing patient record...');
+      const { data: existingPatient } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('profile_id', userId)
+        .maybeSingle();
+
+      // Build emergency contact string
+      const emergency_contact = emergencyName && emergencyPhone 
+        ? `${emergencyName} (${emergencyPhone})`
+        : emergencyName || emergencyPhone || null;
+
+      // Convert ISO string to just a date string (YYYY-MM-DD) for the date column
+      let dateOfBirth: string | null = null;
+      if (params.dobIso) {
+        const d = new Date(params.dobIso as string);
+        dateOfBirth = d.toISOString().split('T')[0]; // '2000-01-15'
+      }
+
+      // Build medical notes from allergies + conditions
+      const medicalNotes = [
+        allergies ? `Allergies: ${allergies}` : '',
+        conditions ? `Chronic Conditions: ${conditions}` : '',
+      ].filter(Boolean).join('\n') || null;
+
+      const patientData = {
+        profile_id: userId,
+        blood_group: (params.bloodGroup as string) || null,
+        date_of_birth: dateOfBirth,
+        gender: params.gender ? (params.gender as string).toLowerCase() : null,
+        emergency_contact,
+        medical_notes: medicalNotes,
+      };
+
+      console.log('[PROFILE] Patient data to save:', JSON.stringify(patientData));
+
+      if (existingPatient) {
+        // Update existing
+        console.log('[PROFILE] Patient record exists, updating...');
+        const { error: updateErr } = await supabase
+          .from('patients')
+          .update(patientData)
+          .eq('profile_id', userId);
+
+        if (updateErr) {
+          console.log('[PROFILE] Patient update error:', updateErr.message);
+          throw new Error('Failed to update patient record: ' + updateErr.message);
+        }
+        console.log('[PROFILE] Patient record updated ✓');
+      } else {
+        // Insert new
+        console.log('[PROFILE] Inserting new patient record...');
+        const { error: insertErr } = await supabase
+          .from('patients')
+          .insert(patientData);
+
+        if (insertErr) {
+          console.log('[PROFILE] Patient insert error:', insertErr.message, insertErr.details, insertErr.hint);
+          throw new Error('Failed to create patient record: ' + insertErr.message);
+        }
+        console.log('[PROFILE] Patient record created ✓');
+      }
+
+      console.log('[PROFILE] All data saved! Navigating to tabs...');
+      console.log('=== PATIENT PROFILE SETUP COMPLETE ===');
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      console.log('[PROFILE] FAILED:', err.message);
+      console.log('=== PATIENT PROFILE SETUP FAILED ===');
+      Alert.alert('Setup Failed', err.message || 'An error occurred during setup.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -111,6 +232,7 @@ export default function ProfileSetUpStep2() {
         <TouchableOpacity 
           activeOpacity={0.8}
           onPress={finishSetup}
+          disabled={loading}
           style={styles.doneButtonContainer}
         >
           <LinearGradient
@@ -119,8 +241,14 @@ export default function ProfileSetUpStep2() {
             end={{ x: 1, y: 0 }}
             style={styles.doneButton}
           >
-            <Text style={styles.doneButtonText}>Finish Setup</Text>
-            <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Text style={styles.doneButtonText}>Finish Setup</Text>
+                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+              </>
+            )}
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>

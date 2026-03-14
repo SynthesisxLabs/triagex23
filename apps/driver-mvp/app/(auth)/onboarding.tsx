@@ -38,7 +38,7 @@ export default function DriverOnboardingScreen() {
 
           <TouchableOpacity 
             activeOpacity={0.8}
-            onPress={() => router.push('/(auth)/signup')}
+            onPress={() => router.push('/(auth)/login')}
             style={styles.buttonContainer}
           >
             <LinearGradient
@@ -56,7 +56,7 @@ export default function DriverOnboardingScreen() {
             style={styles.loginLink}
           >
             <Text style={[styles.loginText, { color: theme.text }]}>
-              Already a registered driver? <Text style={{ color: theme.primary, fontWeight: '700' }}>Log In</Text>
+              Already registered? <Text style={{ color: theme.primary, fontWeight: '700' }}>Sign In with Email</Text>
             </Text>
           </TouchableOpacity>
         </View>

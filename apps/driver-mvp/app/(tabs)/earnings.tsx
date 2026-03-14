@@ -1,22 +1,120 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, Dimensions, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../../utils/supabase';
 
 const { width } = Dimensions.get('window');
+
+const FARE_PER_RIDE = 150; // Mock fixed fare
 
 export default function EarningsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
 
+  const [loading, setLoading] = useState(true);
+  const [totalBalance, setTotalBalance] = useState(0);
+  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [weekEarnings, setWeekEarnings] = useState(0);
+  const [monthEarnings, setMonthEarnings] = useState(0);
+  const [chartData, setChartData] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [chartLabels, setChartLabels] = useState<string[]>(['M','T','W','T','F','S','S']);
+
+  useEffect(() => {
+    fetchEarnings();
+  }, []);
+
+  const fetchEarnings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: driver } = await supabase.from('drivers').select('id').eq('profile_id', user.id).single();
+      if (!driver) return;
+
+      const { data: rides } = await supabase
+        .from('ride_requests')
+        .select('created_at, status')
+        .eq('driver_id', driver.id)
+        .eq('status', 'completed');
+
+      if (!rides) {
+        setLoading(false);
+        return;
+      }
+
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday as start of week
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      let total = 0;
+      let today = 0;
+      let week = 0;
+      let month = 0;
+
+      let dailyTotals = [0, 0, 0, 0, 0, 0, 0];
+      const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+      
+      const orderedLabels = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        orderedLabels.push(dayLabels[d.getDay()]);
+      }
+      setChartLabels(orderedLabels);
+
+      rides.forEach(ride => {
+        const rideDate = new Date(ride.created_at);
+        total += FARE_PER_RIDE;
+
+        if (rideDate.getTime() >= startOfToday.getTime()) {
+          today += FARE_PER_RIDE;
+        }
+        if (rideDate.getTime() >= startOfWeek.getTime()) {
+          week += FARE_PER_RIDE;
+        }
+        if (rideDate.getTime() >= startOfMonth.getTime()) {
+          month += FARE_PER_RIDE;
+        }
+
+        const rideDayStart = new Date(rideDate.getFullYear(), rideDate.getMonth(), rideDate.getDate()).getTime();
+        const diffTime = startOfToday.getTime() - rideDayStart;
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays >= 0 && diffDays < 7) {
+            const arrayIndex = 6 - diffDays;
+            dailyTotals[arrayIndex] += FARE_PER_RIDE;
+        }
+      });
+
+      setTotalBalance(total);
+      setTodayEarnings(today);
+      setWeekEarnings(week);
+      setMonthEarnings(month);
+      setChartData(dailyTotals);
+
+    } catch (err) {
+      console.error('Error fetching earnings:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const earningStats = [
-    { label: 'Today', value: '$120' },
-    { label: 'This Week', value: '$1,450' },
-    { label: 'This Month', value: '$4,820' },
+    { label: 'Today', value: `$${todayEarnings}` },
+    { label: 'This Week', value: `$${weekEarnings}` },
+    { label: 'This Month', value: `$${monthEarnings}` },
   ];
+
+  const maxChartValue = Math.max(...chartData, 100);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -26,25 +124,31 @@ export default function EarningsScreen() {
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Main Earnings Card */}
-        <LinearGradient
-          colors={[theme.gradientStart, theme.gradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.mainCard}
-        >
-          <Text style={styles.mainCardLabel}>Total Balance</Text>
-          <Text style={styles.mainCardValue}>$6,240.50</Text>
-          <View style={styles.cardFooter}>
-            <View>
-              <Text style={styles.footerLabel}>Available for Payout</Text>
-              <Text style={styles.footerValue}>$1,120.00</Text>
-            </View>
-            <TouchableOpacity style={styles.withdrawButton}>
-              <Text style={styles.withdrawText}>Withdraw</Text>
-            </TouchableOpacity>
+        {loading ? (
+          <View style={{ padding: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
-        </LinearGradient>
+        ) : (
+          <>
+            {/* Main Earnings Card */}
+            <LinearGradient
+              colors={[theme.gradientStart, theme.gradientEnd]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.mainCard}
+            >
+              <Text style={styles.mainCardLabel}>Total Balance</Text>
+              <Text style={styles.mainCardValue}>${totalBalance.toFixed(2)}</Text>
+              <View style={styles.cardFooter}>
+                <View>
+                  <Text style={styles.footerLabel}>Available for Payout</Text>
+                  <Text style={styles.footerValue}>${totalBalance > 0 ? totalBalance.toFixed(2) : '0.00'}</Text>
+                </View>
+                <TouchableOpacity style={styles.withdrawButton}>
+                  <Text style={styles.withdrawText}>Withdraw</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
 
         {/* Stats Row */}
         <View style={styles.statsGrid}>
@@ -56,22 +160,25 @@ export default function EarningsScreen() {
           ))}
         </View>
 
-        {/* Monthly Performance (Mockup Chart) */}
+        {/* Monthly Performance (Dynamic Chart) */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Weekly Performance</Text>
         </View>
         <View style={[styles.chartContainer, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
           <View style={styles.barContainer}>
-            {[40, 70, 50, 90, 60, 80, 55].map((height, i) => (
-              <View key={i} style={styles.barItem}>
-                <View style={[styles.bar, { height: height, backgroundColor: i === 3 ? theme.primary : theme.primary + '30' }]} />
-                <Text style={[styles.barLabel, { color: theme.text + '40' }]}>{['M','T','W','T','F','S','S'][i]}</Text>
-              </View>
-            ))}
+            {chartData.map((amount, i) => {
+              const heightPercentage = amount === 0 ? 5 : (amount / maxChartValue) * 100;
+              return (
+                <View key={i} style={styles.barItem}>
+                  <View style={[styles.bar, { height: `${heightPercentage}%`, backgroundColor: i === 6 ? theme.primary : theme.primary + '30' }]} />
+                  <Text style={[styles.barLabel, { color: i === 6 ? theme.text : theme.text + '40' }]}>{chartLabels[i]}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 
-        {/* Recent Payouts */}
+        {/* Recent Payouts - Kept as mock for UI sake since no payouts table exists yet */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Payouts</Text>
         </View>
@@ -87,6 +194,8 @@ export default function EarningsScreen() {
             <Text style={[styles.payoutAmount, { color: theme.text }]}>$500.00</Text>
           </View>
         ))}
+          </>
+        )}
       </ScrollView>
     </View>
   );

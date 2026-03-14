@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '@/utils/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -13,6 +14,62 @@ export default function HomeScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
+
+  const [profile, setProfile] = React.useState<any>(null);
+  const [appointment, setAppointment] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileData) setProfile(profileData);
+
+      const { data: patientData } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('profile_id', user.id)
+        .single();
+
+      if (patientData) {
+        const { data: apptData } = await supabase
+          .from('appointments')
+          .select(`
+            *,
+            doctors (
+              specialization,
+              profiles (
+                full_name,
+                avatar_url
+              )
+            )
+          `)
+          .eq('patient_id', patientData.id)
+          .eq('status', 'scheduled')
+          .order('scheduled_at', { ascending: true })
+          .limit(1)
+          .single();
+          
+        if (apptData) setAppointment(apptData);
+      }
+    } catch (error) {
+      console.error('Error fetching home data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const quickActions = [
     { id: '1', title: 'Find Doctor', icon: 'search', color: '#4CAF50' },
@@ -27,10 +84,16 @@ export default function HomeScreen() {
         <View style={styles.userInfo}>
           <View>
             <Text style={[styles.greeting, { color: theme.text + '99' }]}>Hello,</Text>
-            <Text style={[styles.userName, { color: theme.text }]}>Daksh Hiran</Text>
+            <Text style={[styles.userName, { color: theme.text }]}>
+              {loading ? 'Loading...' : profile?.full_name || 'Patient'}
+            </Text>
           </View>
           <TouchableOpacity style={[styles.profileButton, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-            <Ionicons name="person" size={20} color={theme.primary} />
+            {profile?.avatar_url ? (
+              <Image source={{ uri: profile.avatar_url }} style={{ width: '100%', height: '100%', borderRadius: 22 }} />
+            ) : (
+              <Ionicons name="person" size={20} color={theme.primary} />
+            )}
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -93,38 +156,46 @@ export default function HomeScreen() {
         </View>
 
         {/* Upcoming Appointment */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Upcoming Appointment</Text>
-          <TouchableOpacity>
-            <Text style={{ color: theme.primary, fontFamily: 'InstrumentSans-Bold' }}>View All</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={[styles.appointmentCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-          <View style={styles.doctorInfo}>
-            <Image 
-              source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=100&auto=format&fit=crop' }} 
-              style={styles.doctorImage}
-            />
-            <View style={styles.doctorText}>
-              <Text style={[styles.doctorName, { color: theme.text }]}>Dr. Sarah Johnson</Text>
-              <Text style={[styles.specialization, { color: theme.text + '80' }]}>Cardiologist</Text>
+        {appointment && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Upcoming Appointment</Text>
+              <TouchableOpacity>
+                <Text style={{ color: theme.primary, fontFamily: 'InstrumentSans-Bold' }}>View All</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.messageButton}>
-              <Ionicons name="chatbubble-ellipses" size={20} color={theme.primary} />
-            </TouchableOpacity>
-          </View>
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <View style={styles.appointmentTime}>
-            <View style={styles.timeInfo}>
-              <Ionicons name="calendar" size={16} color={theme.primary} />
-              <Text style={[styles.timeText, { color: theme.text }]}>June 12, 2024</Text>
+            <View style={[styles.appointmentCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
+              <View style={styles.doctorInfo}>
+                <Image 
+                  source={{ uri: appointment.doctors?.profiles?.avatar_url || 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=100&auto=format&fit=crop' }} 
+                  style={styles.doctorImage}
+                />
+                <View style={styles.doctorText}>
+                  <Text style={[styles.doctorName, { color: theme.text }]}>Dr. {appointment.doctors?.profiles?.full_name || 'Doctor'}</Text>
+                  <Text style={[styles.specialization, { color: theme.text + '80' }]}>{appointment.doctors?.specialization || 'General'}</Text>
+                </View>
+                <TouchableOpacity style={styles.messageButton}>
+                  <Ionicons name="chatbubble-ellipses" size={20} color={theme.primary} />
+                </TouchableOpacity>
+              </View>
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <View style={styles.appointmentTime}>
+                <View style={styles.timeInfo}>
+                  <Ionicons name="calendar" size={16} color={theme.primary} />
+                  <Text style={[styles.timeText, { color: theme.text }]}>
+                    {new Date(appointment.scheduled_at).toLocaleDateString()}
+                  </Text>
+                </View>
+                <View style={styles.timeInfo}>
+                  <Ionicons name="time" size={16} color={theme.primary} />
+                  <Text style={[styles.timeText, { color: theme.text }]}>
+                    {new Date(appointment.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.timeInfo}>
-              <Ionicons name="time" size={16} color={theme.primary} />
-              <Text style={[styles.timeText, { color: theme.text }]}>10:30 AM</Text>
-            </View>
-          </View>
-        </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );

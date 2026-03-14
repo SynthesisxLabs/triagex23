@@ -56,7 +56,7 @@ export default function OnboardingScreen() {
             style={styles.loginLink}
           >
             <Text style={[styles.loginText, { color: theme.text }]}>
-              Already have an account? <Text style={{ color: theme.primary, fontWeight: '700' }}>Log In</Text>
+              Already registered? <Text style={{ color: theme.primary, fontWeight: '700' }}>Sign In with Email</Text>
             </Text>
           </TouchableOpacity>
         </View>
