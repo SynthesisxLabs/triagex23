@@ -7,7 +7,7 @@
 
 .marqueeContainer {
   background-color: #F0F0F0;
-  padding: 140px 0;
+  padding: 100px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -18,13 +18,26 @@
 
 .marqueeTitle {
   font-family: 'Aeonik', inherit;
-  font-size: 24px;
+  font-size: 14px;
   color: #000;
-  margin-bottom: 70px;
+  margin-bottom: 60px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  opacity: 0.8;
+  opacity: 0.4;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.marqueeTitle::before,
+.marqueeTitle::after {
+  content: '';
+  width: 40px;
+  height: 1px;
+  background-color: #000;
+  opacity: 0.2;
 }
 
 .marqueeWrapper {
@@ -32,51 +45,88 @@
   width: 100%;
   overflow: hidden;
   position: relative;
-  mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+  padding: 20px 0;
+  mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
 }
 
 .marqueeTrack {
   display: flex;
-  width: 100%;
+  width: fit-content;
 }
 
 .marqueeContent {
   display: flex;
   flex-shrink: 0;
-  gap: 24px;
-  padding-right: 24px;
-  animation: scroll 25s linear infinite;
+  gap: 40px;
+  padding-right: 40px;
+  animation: scroll 40s linear infinite;
 }
 
-.marqueeTrack:hover .marqueeContent {
+.marqueeWrapper:hover .marqueeContent {
   animation-play-state: paused;
 }
 
 .marqueeItem {
-  background-color: #ffffff;
-  padding: 24px 56px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  padding: 20px 48px;
+  border-radius: 100px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 16px;
   white-space: nowrap;
-  font-weight: 600;
-  color: #000;
-  font-size: 20px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 24px;
+  font-weight: 500;
+  color: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: default;
 }
 
 .marqueeItem:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.1);
+  transform: translateY(-5px) scale(1.02);
+  background: #ffffff;
+  border-color: #f77042;
+  box-shadow: 0 10px 40px rgba(247, 112, 66, 0.1);
+  color: #f77042;
+}
+
+.icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.4s ease;
+  color: #000;
+}
+
+.marqueeItem:hover .icon {
+  transform: rotate(180deg);
+  color: #f77042;
 }
 
 @keyframes scroll {
   0% { transform: translateX(0); }
   100% { transform: translateX(-100%); }
+}
+
+/* Vertical variant for mobile or alternate sections */
+@media (max-width: 768px) {
+  .marqueeContainer {
+    padding: 60px 0;
+  }
+  
+  .marqueeItem {
+    padding: 16px 32px;
+    font-size: 18px;
+    gap: 12px;
+  }
+  
+  .icon {
+    width: 20px;
+    height: 20px;
+  }
 }

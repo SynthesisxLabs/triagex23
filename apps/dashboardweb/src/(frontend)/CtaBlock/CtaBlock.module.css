@@ -13,27 +13,28 @@
 }
 
 .container {
-  padding: 80px 24px;
+  padding: 20px;
   background-color: #F0F0F0;
   display: flex;
   justify-content: center;
   font-family: 'Aeonik', sans-serif;
   color: #000;
+  width: 100%;
 }
 
 .innerWrapper {
-  max-width: 1200px;
   width: 100%;
-  background: linear-gradient(rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.45)), url('/image copy 2.png') no-repeat center center;
+  min-height: 800px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.45) 100%), url('/6fa21ae6-94d8-4d7f-9ad4-0b254f0562ff.jpg') no-repeat center center;
   background-size: cover;
-  border-radius: 20px;
-  padding: 80px 60px;
+  border-radius: 60px;
+  padding: 80px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   color: #000000;
   position: relative;
-  overflow: hidden;
+  /* Removed overflow: hidden to prevent cutting off floating elements */
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
@@ -52,29 +53,85 @@
 }
 
 .heading {
-  font-size: 48px;
-  line-height: 1.1;
+  font-size: clamp(40px, 5.5vw, 64px);
+  line-height: 1.05;
   font-weight: bold;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
+  letter-spacing: -0.02em;
 }
 
 .subtext {
   font-size: 16px;
-  line-height: 1.5;
-  margin-bottom: 40px;
+  line-height: 1.6;
+  margin-bottom: 48px;
   max-width: 500px;
+  opacity: 0.9;
 }
 
 .androidBadge {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
   padding: 12px 24px;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
   border-radius: 12px;
   width: fit-content;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.downloadGroup {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.badgeButton {
+  background: #000;
+  color: #fff;
+  padding: 14px 28px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid #000;
+}
+
+.badgeButton:hover {
+  transform: translateY(-3px);
+  background: #111;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.primaryBadge {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.primaryBadge:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.badgeButtonText {
+  display: flex;
+  flex-direction: column;
+}
+
+.badgeButtonText span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+  font-weight: 500;
+}
+
+.badgeButtonText strong {
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .bottomLabel {
@@ -101,31 +158,73 @@
 }
 
 .qrCard {
-  background: #ffffff;
-  padding: 32px;
-  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  padding: 56px 48px;
+  border-radius: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
-  max-width: 320px;
+  gap: 32px;
+  box-shadow: 
+    0 40px 100px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.8);
+  max-width: 400px;
+  position: relative;
+  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.qrCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  opacity: 0.5;
+}
+
+.qrCard:hover {
+  transform: translateY(-12px) scale(1.02);
+  box-shadow: 0 60px 120px rgba(0, 0, 0, 0.15);
 }
 
 .qrWrapper {
   background: #ffffff;
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid #f0f0f0;
+  padding: 24px;
+  border-radius: 32px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+.scanLine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 2px;
+  background: #2563eb;
+  box-shadow: 0 0 15px #2563eb;
+  z-index: 10;
+  animation: scan 3s linear infinite;
+  opacity: 0.6;
+}
+
+@keyframes scan {
+  0% { top: 0; }
+  50% { top: 100%; }
+  100% { top: 0; }
 }
 
 .qrInfo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   text-align: left;
   width: 100%;
-  padding-top: 16px;
+  padding-top: 24px;
   border-top: 1px solid #f0f0f0;
 }
 
@@ -135,8 +234,8 @@
 
 .qrText {
   color: #000;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .qrText strong {
@@ -146,39 +245,30 @@
 @media (max-width: 1024px) {
   .innerWrapper {
     flex-direction: column;
-    padding: 60px 40px;
+    padding: 60px 24px;
     align-items: center;
     text-align: center;
+    border-radius: 40px;
   }
   
   .contentLeft {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 40px;
+    margin-bottom: 60px;
   }
 
   .subtext {
-    margin: 0 auto 40px;
+    margin: 0 auto 32px;
   }
 
-  .androidBadge {
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .contentRight {
-    margin-left: 0;
-  }
-}
-
-@media (max-width: 600px) {
-  .downloadButtons {
+  .downloadGroup {
     flex-direction: column;
     width: 100%;
+    align-items: stretch;
   }
 
-  .appStoreButton {
+  .badgeButton {
     width: 100%;
     justify-content: center;
   }
@@ -189,11 +279,8 @@
     font-size: 32px;
   }
   
-  .ctaForm {
-    flex-direction: column;
-  }
-  
-  .inputWrapper {
-    max-width: 100%;
+  .qrCard {
+    padding: 24px;
+    width: 100%;
   }
 }

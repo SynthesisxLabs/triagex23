@@ -37,7 +37,7 @@ const features = [
 
 export default function Feature() {
   return (
-    <section className={styles.container}>
+    <section id="features" className={styles.container}>
       <div className={styles.header}>
         <h2 className={styles.title}>Unified Platform Features</h2>
         <p className={styles.subtitle}>
@@ -45,18 +45,11 @@ export default function Feature() {
         </p>
       </div>
       
-      <button className={styles.button}>Get started for free</button>
-
       <div className={styles.grid}>
         {features.map((item, index) => (
           <div 
             key={index} 
             className={styles.card}
-            style={{ 
-              backgroundImage: `linear-gradient(rgba(252, 252, 252, 0.94), rgba(252, 252, 252, 0.94)), url('/9f74e4d8-4c67-4ec1-b03a-410678eaef59.jpg')`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center top',
-            }}
           >
             <h3 className={styles.cardTitle}>{item.title}</h3>
             <p className={styles.cardDesc}>{item.desc}</p>

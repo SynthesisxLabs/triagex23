@@ -4,6 +4,7 @@ import SocialProof from "@/(frontend)/SocialProof/SocialProof";
 import Marquee from "@/(frontend)/Markee/Markee";
 import Work from "@/(frontend)/work/work";
 import Feature from "@/(frontend)/Feature/Feature";
+import Pricing from "@/(frontend)/pricing/pricing";
 import CtaBlock from "@/(frontend)/CtaBlock/CtaBlock";
 
 export default function Home() {
@@ -14,6 +15,7 @@ export default function Home() {
       <Marquee />
       <Work />
       <Feature />
+      <Pricing />
       <CtaBlock />
     </main>
   );

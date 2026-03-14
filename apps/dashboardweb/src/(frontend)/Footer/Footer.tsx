@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import styles from './Footer.module.css';
 import { ShieldCheck, Lock, Globe } from 'lucide-react';
 
@@ -30,29 +31,32 @@ const Footer = () => {
 
             <div className={styles.linksCol}>
               <div className={styles.linkGroup}>
-                <h4 className={styles.groupTitle}>Platform</h4>
-                <a href="#">Compose</a>
-                <a href="#">Guard</a>
-                <a href="#">Command</a>
+                <h4 className={styles.groupTitle}>Technology</h4>
+                <Link href="#work">Triage Engine</Link>
+                <Link href="#features">AI Diagnostics</Link>
+                <Link href="#features">Ambulance OS</Link>
+                <Link href="#download">Mobile App</Link>
               </div>
               <div className={styles.linkGroup}>
                 <h4 className={styles.groupTitle}>Solutions</h4>
-                <a href="#">Workflow</a>
-                <a href="#">Team</a>
-                <a href="#">Industry</a>
+                <a href="#">Hospitals</a>
+                <a href="#">Emergency Teams</a>
+                <a href="#">Governments</a>
+                <a href="#">Patient Portal</a>
               </div>
               <div className={styles.linkGroup}>
                 <h4 className={styles.groupTitle}>Company</h4>
-                <a href="#">About</a>
-                <a href="#">Security</a>
+                <a href="#">About TriageX</a>
+                <a href="#">Security & Trust</a>
+                <a href="#">HIPAA Compliance</a>
                 <a href="#">Careers</a>
-                <a href="#">Contact</a>
               </div>
               <div className={styles.linkGroup}>
-                <h4 className={styles.groupTitle}>Legal</h4>
-                <a href="#">Privacy</a>
-                <a href="#">Terms</a>
-                <a href="#">DPA</a>
+                <h4 className={styles.groupTitle}>Support</h4>
+                <a href="#">Help Centre</a>
+                <a href="#">API Docs</a>
+                <a href="#">Contact Support</a>
+                <a href="#">System Status</a>
               </div>
             </div>
           </div>
