@@ -1,0 +1,220 @@
+@font-face {
+  font-family: 'Aeonik';
+  src: url('../../../assests/fonts/fonnts.com-Aeonik-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.container {
+  background-color: #000000;
+  color: #F0F0F0; /* Soft White as requested */
+  padding: 80px 24px;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 20px;
+  font-family: 'Aeonik', sans-serif;
+}
+
+.wrapper {
+  max-width: 1200px;
+  width: 100%;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 80px;
+}
+
+.title {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 20px;
+}
+
+.subtitle {
+  color: #888;
+  max-width: 650px;
+  margin: 0 auto 32px;
+  line-height: 1.6;
+}
+
+.button {
+  background-color: #2563eb; /* blue theme */
+  color: #fff;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.button:hover {
+  background-color: #1d4ed8; /* slightly darker blue on hover */
+  transform: translateY(-2px);
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 60px;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .contentGrid {
+    grid-template-columns: 1fr 1.2fr;
+  }
+}
+
+/* Feature List */
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.feature {
+  display: flex;
+  gap: 20px;
+}
+
+.featureIcon {
+  width: 48px;
+  height: 48px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.featureTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.featureDesc {
+  color: #888;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Radar Visuals */
+.rightColumn {
+  position: relative;
+  height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radarWrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radarScan {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0%, rgba(37, 99, 235, 0.15) 50%, transparent 100%);
+  animation: rotate 10s linear infinite;
+  mask-image: radial-gradient(circle, transparent 40%, black 80%);
+  opacity: 0.5;
+}
+
+.centerGlow {
+  position: absolute;
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, rgba(37, 99, 235, 0.05) 40%, transparent 70%);
+  border-radius: 50%;
+  z-index: 0;
+  filter: blur(40px);
+}
+
+.centerGlow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 4px;
+  background: #60a5fa;
+  border-radius: 50%;
+  box-shadow: 0 0 15px 2px #60a5fa;
+}
+
+.orbitPath {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.orbitCircleStroke {
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 1px;
+}
+
+.orbitItem {
+  position: absolute;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  animation: orbit var(--duration) linear infinite;
+  animation-delay: calc(var(--delay) * -1s);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glassIcon {
+  width: 100%;
+  height: 100%;
+  background: rgba(14, 14, 22, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(60, 131, 246, 0.2);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    0 0 30px rgba(0, 0, 0, 0.6),
+    inset 0 0 12px rgba(60, 131, 246, 0.1);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.glassIcon:hover {
+  border-color: rgba(60, 131, 246, 0.6);
+  box-shadow: 
+    0 0 40px rgba(60, 131, 246, 0.25),
+    inset 0 0 15px rgba(60, 131, 246, 0.2);
+  transform: scale(1.1) rotate(5deg);
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg) translateY(calc(var(--radius) * 1px)) rotate(0deg); }
+  to { transform: rotate(360deg) translateY(calc(var(--radius) * 1px)) rotate(-360deg); }
+}
+
+.orbitItemReverse {
+  animation-direction: reverse;
+}

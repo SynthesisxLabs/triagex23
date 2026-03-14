@@ -1,0 +1,326 @@
+.heroSection {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 40px);
+  min-height: 850px;
+  padding: 0 20px 20px 20px;
+  overflow: visible;
+  color: #ffffff;
+  background-color: transparent;
+}
+
+.innerContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 40px;
+  overflow: hidden;
+  background-color: #f77042;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.backgroundWrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.bgImage {
+  object-fit: cover;
+  object-position: center;
+}
+
+.overlay {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  padding: 60px 80px;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.topBadge {
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
+  margin-bottom: 30px;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.a16z {
+  font-weight: 700;
+}
+
+.slash {
+  opacity: 0.5;
+  font-weight: 300;
+}
+
+.speedrun {
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+
+.title {
+  font-size: clamp(60px, 10vw, 150px);
+  font-weight: 500;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  margin-bottom: 50px;
+}
+
+.ctaButton {
+  background-color: #ffffff;
+  color: #000000;
+  padding: 16px 36px;
+  border-radius: 90px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  width: fit-content;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  margin-bottom: 30px;
+}
+
+.ctaButton:hover {
+  transform: scale(1.02);
+  background-color: #f0f0f0;
+}
+
+.bottomSection {
+  margin-top: auto;
+  width: 100%;
+}
+
+.description {
+  font-size: 18px;
+  line-height: 1.4;
+  opacity: 0.9;
+  margin-bottom: 40px;
+  max-width: 650px;
+}
+
+.footerCol {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.logos {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.logoCircle {
+  width: 60px;
+  height: 60px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(4px);
+}
+
+/* Feature Showcase Block Styling - LIGHT THEME */
+.showcaseBlock {
+  width: 580px;
+  background-color: #F0F0F0;
+  border-radius: 32px;
+  padding: 32px;
+  color: #000000;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.1);
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding-bottom: 4px;
+  transform: translateY(-40px);
+}
+
+.showcaseContent {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+}
+
+.showcaseText {
+  flex: 1;
+}
+
+.showcaseTag {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.4);
+  margin-bottom: 12px;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.showcaseTitle {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+  color: #000;
+}
+
+.showcaseDesc {
+  font-size: 15px;
+  color: rgba(0, 0, 0, 0.6);
+  line-height: 1.5;
+}
+
+.showcasePreview {
+  width: 260px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+}
+
+.previewImageWrapper {
+  flex: 1;
+  aspect-ratio: 1;
+  border-radius: 20px;
+  overflow: hidden;
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.previewImage {
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.showcaseBlock:hover .previewImage {
+  transform: scale(1.1);
+}
+
+/* Vertical Slider Controls */
+.showcaseControls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.pill {
+  background: #000000;
+  padding: 16px 10px;
+  border-radius: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.activePDot {
+  background: #fff;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+  transform: scale(1.2);
+}
+
+.arrow {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000000;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.arrow:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+
+.arrow:last-child:hover {
+  transform: translateY(2px);
+}
+
+@media (max-width: 1200px) {
+  .showcaseBlock {
+    width: 500px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .overlay {
+    padding: 40px;
+  }
+
+  .footerCol {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 30px;
+  }
+
+  .showcaseBlock {
+    width: 100%;
+    transform: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .heroSection {
+    padding: 12px;
+    height: auto;
+    min-height: 0;
+  }
+
+  .innerContainer {
+    border-radius: 20px;
+  }
+
+  .title {
+    font-size: 48px;
+  }
+
+  .showcaseContent {
+    flex-direction: column;
+  }
+
+  .showcasePreview {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

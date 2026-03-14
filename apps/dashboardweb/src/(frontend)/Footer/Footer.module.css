@@ -1,0 +1,243 @@
+.footer {
+  background-color: #F0F0F0;
+  padding: 20px;
+  color: #000;
+  font-family: 'Aeonik', sans-serif;
+}
+
+.container {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.innerBlock {
+  background: linear-gradient(rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.75)), url('/image copy 3.png') no-repeat center center;
+  background-size: cover;
+  border-radius: 40px;
+  padding: 40px 60px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02);
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.topSection {
+  display: flex;
+  justify-content: space-between;
+  gap: 40px;
+  margin-bottom: 40px;
+}
+
+.brandCol {
+  flex: 1;
+  max-width: 450px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.logoIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  position: relative;
+  background: conic-gradient(
+    #000 0% 10%, transparent 10% 15%,
+    #000 15% 25%, transparent 25% 30%,
+    #000 30% 40%, transparent 40% 45%,
+    #000 45% 55%, transparent 55% 60%,
+    #000 60% 70%, transparent 70% 75%,
+    #000 75% 85%, transparent 85% 90%,
+    #000 90% 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoIcon::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+}
+
+.logoText {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.infoBlock {
+  margin-bottom: 24px;
+}
+
+.blockTitle {
+  font-size: 15px;
+  font-weight: 500;
+  color: #000;
+  margin-bottom: 16px;
+}
+
+.blockText {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #000;
+}
+
+.fadedText {
+  color: #999;
+  font-weight: 400;
+}
+
+.link {
+  font-size: 16px;
+  font-weight: 500;
+  color: #000;
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.link:hover {
+  opacity: 1;
+}
+
+.compliance {
+  display: flex;
+  gap: 12px;
+  margin: 48px 0 24px;
+}
+
+.trustBadge {
+  height: 48px;
+  width: auto;
+  opacity: 0.9;
+  filter: grayscale(1);
+  transition: filter 0.3s;
+}
+
+.trustBadge:hover {
+  filter: grayscale(0);
+}
+
+.trustText {
+  font-size: 14px;
+  color: #666;
+  font-weight: 400;
+}
+
+.underlinedLink {
+  color: #000;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.linksCol {
+  display: flex;
+  gap: 60px;
+}
+
+.linkGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 100px;
+}
+
+.groupTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #000;
+}
+
+.linkGroup a {
+  font-size: 14px;
+  color: #888;
+  text-decoration: none;
+  transition: color 0.2s;
+  font-weight: 400;
+}
+
+.linkGroup a:hover {
+  color: #000;
+}
+
+.bottomSection {
+  display: flex;
+  flex-direction: column;
+}
+
+.copyrightBar {
+  width: 100%;
+}
+
+.horizontalLine {
+  width: 100%;
+  height: 1px;
+  background-color: #eee;
+  margin-bottom: 20px;
+}
+
+.copyText {
+  font-size: 14px;
+  color: #999;
+}
+
+@media (max-width: 1200px) {
+  .innerBlock {
+    padding: 60px;
+    border-radius: 32px;
+  }
+  
+  .linksCol {
+    gap: 40px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .topSection {
+    flex-direction: column;
+    gap: 60px;
+  }
+  
+  .linksCol {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+  }
+
+  .emailItem {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .innerBlock {
+    padding: 40px 24px;
+    border-radius: 24px;
+  }
+
+  .logoText {
+    font-size: 24px;
+  }
+
+  .logoIcon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .linksCol {
+    grid-template-columns: 1fr;
+  }
+
+  .bottomSection {
+    align-items: flex-start;
+  }
+}

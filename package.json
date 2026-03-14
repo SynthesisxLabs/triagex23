@@ -1,4 +1,7 @@
 {
   "name": "triagex23",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "react-native-svg": "15.12.1"
+  }
 }

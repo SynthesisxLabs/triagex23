@@ -1,0 +1,199 @@
+@font-face {
+  font-family: 'Aeonik';
+  src: url('../../../assests/fonts/fonnts.com-Aeonik-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Aeonik';
+  src: url('../../../assests/fonts/fonnts.com-Aeonik-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+.container {
+  padding: 80px 24px;
+  background-color: #F0F0F0;
+  display: flex;
+  justify-content: center;
+  font-family: 'Aeonik', sans-serif;
+  color: #000;
+}
+
+.innerWrapper {
+  max-width: 1200px;
+  width: 100%;
+  background: linear-gradient(rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.45)), url('/image copy 2.png') no-repeat center center;
+  background-size: cover;
+  border-radius: 20px;
+  padding: 80px 60px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #000000;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.contentLeft {
+  flex: 1;
+  max-width: 600px;
+}
+
+.topLabel {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 24px;
+}
+
+.heading {
+  font-size: 48px;
+  line-height: 1.1;
+  font-weight: bold;
+  margin-bottom: 24px;
+}
+
+.subtext {
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 40px;
+  max-width: 500px;
+}
+
+.androidBadge {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  width: fit-content;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.bottomLabel {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  font-weight: 500;
+  color: #000;
+}
+
+.badgeText {
+  display: flex;
+  flex-direction: column;
+}
+
+.badgeText span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.badgeText strong {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.qrCard {
+  background: #ffffff;
+  padding: 32px;
+  border-radius: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
+  max-width: 320px;
+}
+
+.qrWrapper {
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid #f0f0f0;
+}
+
+.qrInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  width: 100%;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.downIcon {
+  color: #2563eb;
+}
+
+.qrText {
+  color: #000;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.qrText strong {
+  color: #000;
+}
+
+@media (max-width: 1024px) {
+  .innerWrapper {
+    flex-direction: column;
+    padding: 60px 40px;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .contentLeft {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 40px;
+  }
+
+  .subtext {
+    margin: 0 auto 40px;
+  }
+
+  .androidBadge {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .contentRight {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .downloadButtons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .appStoreButton {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .heading {
+    font-size: 32px;
+  }
+  
+  .ctaForm {
+    flex-direction: column;
+  }
+  
+  .inputWrapper {
+    max-width: 100%;
+  }
+}

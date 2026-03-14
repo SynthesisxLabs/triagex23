@@ -2,13 +2,13 @@ import React from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Colors } from '../../constants/theme';
-import { useColorScheme } from '../../hooks/use-color-scheme';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
-export default function DriverOnboardingScreen() {
+export default function OnboardingScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
@@ -17,7 +17,7 @@ export default function DriverOnboardingScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.imageContainer}>
         <Image 
-          source={{ uri: 'https://images.unsplash.com/photo-1612277795421-9bc7706a4a34?q=80&w=1000&auto=format&fit=crop' }} 
+          source={{ uri: 'https://images.unsplash.com/photo-1542884748-2b87b36c6b90?q=80&w=1000&auto=format&fit=crop' }} 
           style={styles.heroImage}
           resizeMode="cover"
         />
@@ -30,15 +30,15 @@ export default function DriverOnboardingScreen() {
       <SafeAreaView style={styles.safeArea} edges={['bottom']}>
         <View style={styles.contentContainer}>
           <Text style={[styles.title, { color: theme.text }]}>
-            Be the Hero in Every Emergency
+            Your Personal AI Healthcare Companion
           </Text>
           <Text style={[styles.subtitle, { color: theme.text + '99' }]}>
-            Join the TriageX network, receive real-time dispatch alerts, and save lives with professional ambulance care.
+            Get instant medical insights, book appointments, and track emergency support all in one place.
           </Text>
 
           <TouchableOpacity 
             activeOpacity={0.8}
-            onPress={() => router.push('/(auth)/signup')}
+            onPress={() => router.push('/(auth)/login')}
             style={styles.buttonContainer}
           >
             <LinearGradient
@@ -56,7 +56,7 @@ export default function DriverOnboardingScreen() {
             style={styles.loginLink}
           >
             <Text style={[styles.loginText, { color: theme.text }]}>
-              Already a registered driver? <Text style={{ color: theme.primary, fontWeight: '700' }}>Log In</Text>
+              Already have an account? <Text style={{ color: theme.primary, fontWeight: '700' }}>Log In</Text>
             </Text>
           </TouchableOpacity>
         </View>
