@@ -7,6 +7,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold, InstrumentSans_700Bold } from '@expo-google-fonts/instrument-sans';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { supabase } from '../utils/supabase';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -58,6 +59,27 @@ export default function RootLayout() {
       await SplashScreen.hideAsync();
     }
   }, [appReady]);
+
+  // Handle Auth Session Errors (e.g., Invalid Refresh Token redbox)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any) => {
+      if (event === 'SIGNED_OUT') {
+        // Session was cleared or refresh token was invalid
+        const router = require('expo-router').router;
+        router.replace('/(auth)/onboarding');
+      }
+    });
+
+    // Proactively catch background session restoration errors
+    supabase.auth.getSession().catch((err: any) => {
+      console.log('[AUTH] Session restore error caught:', err);
+      supabase.auth.signOut();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     onLayoutReady();

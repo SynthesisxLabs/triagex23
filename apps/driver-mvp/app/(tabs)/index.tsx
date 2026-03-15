@@ -24,6 +24,7 @@ export default function DriverDashboard() {
   const [stats, setStats] = useState({ trips: '0', earnings: '$0', rating: '4.9' });
   const [activeRequest, setActiveRequest] = useState<any>(null);
   const [recentMission, setRecentMission] = useState<any>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -42,13 +43,18 @@ export default function DriverDashboard() {
           event: '*',
           schema: 'public',
           table: 'ride_requests',
-          filter: `driver_id=eq.${driverId}`,
         },
         (payload) => {
-          if (payload.new && (payload.new as any).status === 'pending') {
+          if (payload.new && (payload.new as any).status === 'requested' && !(payload.new as any).driver_id) {
              fetchRequestDetails((payload.new as any).id);
-          } else if (payload.new && ((payload.new as any).status === 'cancelled' || (payload.new as any).status === 'accepted')) {
-             setActiveRequest(null);
+          } else if (payload.new && (payload.new as any).status !== 'requested') {
+             setActiveRequest((prev: any) => {
+                 if (prev && prev.id === (payload.new as any).id) {
+                     setTimeout(checkPendingRequest, 1000); // Check if another is waiting
+                     return null;
+                 }
+                 return prev;
+             });
           }
         }
       )
@@ -61,14 +67,31 @@ export default function DriverDashboard() {
 
   const checkPendingRequest = async () => {
     try {
+      // First, check if there's an active assigned mission
+      const { data: activeMission } = await supabase
+        .from('ride_requests')
+        .select('id')
+        .eq('driver_id', driverId)
+        .in('status', ['accepted', 'arrived', 'transporting'])
+        .limit(1)
+        .single();
+        
+      if (activeMission) {
+        // Driver has an ongoing mission, clear alerts
+         setActiveRequest(null);
+         return;
+      }
+
+      // If no active mission, check for unassigned pending requests
       const { data } = await supabase
         .from('ride_requests')
         .select(`
           id,
+          pickup_address,
           patients ( profiles ( full_name ) )
         `)
-        .eq('driver_id', driverId)
-        .eq('status', 'pending')
+        .is('driver_id', null)
+        .eq('status', 'requested')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -76,12 +99,19 @@ export default function DriverDashboard() {
       if (data) {
         setActiveRequest({
           id: data.id,
-          patientName: (data.patients as any)?.profiles?.full_name || 'Emergency Patient'
+          patientName: (data.patients as any)?.profiles?.full_name || 'Emergency Patient',
+          pickupAddress: data.pickup_address || 'Unknown Location'
         });
       }
     } catch (e) {
       // no pending request
     }
+  };
+
+  const handleManualSearch = async () => {
+    setIsSearching(true);
+    await checkPendingRequest();
+    setTimeout(() => setIsSearching(false), 800);
   };
 
   const fetchRequestDetails = async (requestId: string) => {
@@ -90,6 +120,7 @@ export default function DriverDashboard() {
         .from('ride_requests')
         .select(`
           id,
+          pickup_address,
           patients ( profiles ( full_name ) )
         `)
         .eq('id', requestId)
@@ -98,7 +129,8 @@ export default function DriverDashboard() {
       if (data) {
         setActiveRequest({
           id: data.id,
-          patientName: (data.patients as any)?.profiles?.full_name || 'Emergency Patient'
+          patientName: (data.patients as any)?.profiles?.full_name || 'Emergency Patient',
+          pickupAddress: data.pickup_address || 'Unknown Location'
         });
       }
     } catch (e) {
@@ -210,6 +242,9 @@ export default function DriverDashboard() {
             <View style={styles.alertContent}>
               <Text style={styles.alertTitle}>New Emergency Request!</Text>
               <Text style={styles.alertSubtitle}>Patient: {activeRequest.patientName} • Just now</Text>
+              {activeRequest.pickupAddress && (
+                <Text style={styles.alertSubtitle} numberOfLines={1}>📍 {activeRequest.pickupAddress}</Text>
+              )}
             </View>
             <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
           </TouchableOpacity>
@@ -227,6 +262,31 @@ export default function DriverDashboard() {
             <Text style={[styles.statusSubtitle, { color: theme.text + '60' }]}>
               {isOnline ? 'Incoming requests will appear here' : 'Go online to receive emergency calls'}
             </Text>
+            {isOnline && !activeRequest && (
+              <TouchableOpacity 
+                style={{ 
+                  marginTop: 12, 
+                  backgroundColor: theme.primary, 
+                  paddingVertical: 10, 
+                  paddingHorizontal: 16, 
+                  borderRadius: 12, 
+                  alignSelf: 'flex-start', 
+                  flexDirection: 'row', 
+                  alignItems: 'center' 
+                }}
+                onPress={handleManualSearch}
+                disabled={isSearching}
+              >
+                {isSearching ? (
+                  <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 6 }} />
+                ) : (
+                  <Ionicons name="search" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                )}
+                <Text style={{ color: '#FFF', fontFamily: 'InstrumentSans-Bold', fontSize: 14 }}>
+                  {isSearching ? 'Searching...' : 'Search Trips'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 

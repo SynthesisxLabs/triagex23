@@ -1,21 +1,105 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, Dimensions, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/theme';
 import { useColorScheme } from '../hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../utils/supabase';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ActiveMission() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const requestId = params.requestId as string;
+
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   
-  const [missionStep, setMissionStep] = useState(1); // 1: Accepted, 2: Arrived, 3: Transporting
-  
+  const [missionStep, setMissionStep] = useState(0); // 0: Pending, 1: Accepted, 2: Arrived, 3: Transporting
+  const [patientData, setPatientData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (requestId) {
+      fetchMissionDetails();
+    } else {
+      setLoading(false);
+    }
+  }, [requestId]);
+
+  const fetchMissionDetails = async () => {
+    try {
+      const { data } = await supabase
+        .from('ride_requests')
+        .select(`
+          *,
+          patients (
+            profiles (
+              full_name,
+              avatar_url
+            )
+          )
+        `)
+        .eq('id', requestId)
+        .single();
+
+      if (data) {
+        setPatientData(data);
+        if (data.status === 'requested') setMissionStep(0);
+        else if (data.status === 'accepted') setMissionStep(1);
+        else if (data.status === 'arrived') setMissionStep(2);
+        else if (data.status === 'transporting') setMissionStep(3);
+        else if (data.status === 'completed' || data.status === 'cancelled') router.replace('/(tabs)');
+      }
+    } catch (error) {
+       console.error('Error fetching mission details:', error);
+    } finally {
+       setLoading(false);
+    }
+  };
+
+  const handleAction = async () => {
+    try {
+      if (missionStep === 0) {
+        // Accept mission: Assign driver_id and mark accepted
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: driver } = await supabase.from('drivers').select('id').eq('profile_id', user.id).single();
+        if (!driver) return;
+
+        await supabase.from('ride_requests').update({ status: 'accepted', driver_id: driver.id }).eq('id', requestId);
+        setMissionStep(1);
+      } else if (missionStep === 1) {
+        await supabase.from('ride_requests').update({ status: 'arrived' }).eq('id', requestId);
+        setMissionStep(2);
+      } else if (missionStep === 2) {
+        await supabase.from('ride_requests').update({ status: 'transporting' }).eq('id', requestId);
+        setMissionStep(3);
+      } else if (missionStep === 3) {
+        await supabase.from('ride_requests').update({ status: 'completed' }).eq('id', requestId);
+        router.replace('/(tabs)');
+      }
+    } catch (e) {
+       console.error('Error updating mission status:', e);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
+         <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  const patientProfile = patientData?.patients?.profiles;
+  const patientName = patientProfile?.full_name || 'Emergency Patient';
+  const patientAvatar = patientProfile?.avatar_url || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200&auto=format&fit=crop';
+  const pickupAddress = patientData?.pickup_address || 'Fetching Location...';
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Map Background Placeholder */}
@@ -27,6 +111,7 @@ export default function ActiveMission() {
         <View style={styles.mapOverlay} />
         
         {/* Navigation Info Bar */}
+        {(missionStep > 0) && (
         <SafeAreaView style={styles.navInfo} edges={['top']}>
           <LinearGradient
             colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0)']}
@@ -37,16 +122,17 @@ export default function ActiveMission() {
                 <Ionicons name="navigate" size={32} color="#FFFFFF" />
               </View>
               <View style={styles.dirText}>
-                <Text style={styles.distanceText}>500m</Text>
-                <Text style={styles.streetText}>Turn left onto MG Road</Text>
+                <Text style={styles.distanceText}>{missionStep === 1 ? 'Arriving Soon' : 'En Route'}</Text>
+                <Text style={styles.streetText} numberOfLines={1}>{pickupAddress}</Text>
               </View>
               <View style={styles.etaBox}>
-                <Text style={styles.etaTime}>4 min</Text>
+                <Text style={styles.etaTime}>{missionStep === 1 ? '-- min' : '-- min'}</Text>
                 <Text style={styles.etaLabel}>ETA</Text>
               </View>
             </View>
           </LinearGradient>
         </SafeAreaView>
+        )}
       </View>
 
       {/* Mission Control Panel */}
@@ -59,12 +145,12 @@ export default function ActiveMission() {
           <View style={styles.patientMain}>
             <View style={[styles.avatarContainer, { borderColor: theme.primary }]}>
               <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200&auto=format&fit=crop' }} 
+                source={{ uri: patientAvatar }} 
                 style={styles.patientAvatar}
               />
             </View>
             <View style={styles.patientDetails}>
-              <Text style={[styles.patientName, { color: theme.text }]}>Sarah Mitchell</Text>
+              <Text style={[styles.patientName, { color: theme.text }]}>{patientName}</Text>
               <View style={styles.alertRow}>
                 <Ionicons name="alert-circle" size={16} color="#FF3B30" />
                 <Text style={styles.alertText}>Critical: Breathing Issue</Text>
@@ -87,23 +173,21 @@ export default function ActiveMission() {
           <View style={styles.addressRow}>
             <Ionicons name="location" size={20} color={theme.primary} />
             <Text style={[styles.addressText, { color: theme.text + '90' }]} numberOfLines={2}>
-              A-42, Silicon Valley, Sector 12, Indiranagar, Bangalore
+              {pickupAddress}
             </Text>
           </View>
 
           <TouchableOpacity 
             style={[styles.mainActionButton, { backgroundColor: missionStep === 3 ? '#4CAF50' : theme.primary }]}
             activeOpacity={0.8}
-            onPress={() => {
-              if (missionStep < 3) setMissionStep(missionStep + 1);
-              else router.replace('/(tabs)');
-            }}
+            onPress={handleAction}
           >
             <Text style={styles.buttonText}>
-              {missionStep === 1 ? 'ARRIVED AT PICKUP' : 
+              {missionStep === 0 ? 'ACCEPT MISSION' :
+               missionStep === 1 ? 'ARRIVED AT PICKUP' : 
                missionStep === 2 ? 'START TRANSPORTING' : 'FINISH MISSION'}
             </Text>
-            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+            <Ionicons name={missionStep === 0 ? "checkmark-circle" : "arrow-forward"} size={20} color="#FFFFFF" />
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.sosButton}>

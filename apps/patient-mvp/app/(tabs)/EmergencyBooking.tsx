@@ -6,6 +6,7 @@ import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../utils/supabase';
+import * as Location from 'expo-location';
 
 const { width } = Dimensions.get('window');
 
@@ -42,6 +43,31 @@ export default function EmergencyBookingScreen() {
   const handleBook = async () => {
     setBookingStatus('searching');
     try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Permission to access location was denied');
+        setBookingStatus('idle');
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      let addressInfo = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+      
+      let pickupLocationName = 'Unknown Location';
+      if (addressInfo && addressInfo.length > 0) {
+        const addr = addressInfo[0];
+        const parts = [
+          addr.name && addr.name !== addr.street ? addr.name : '',
+          addr.street,
+          addr.subregion || addr.city,
+          addr.region
+        ].filter(Boolean);
+        pickupLocationName = parts.join(', ');
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
 
@@ -54,7 +80,7 @@ export default function EmergencyBookingScreen() {
       const { data: ride, error } = await supabase.from('ride_requests').insert({
         patient_id: patient.id,
         hospital_id: hospital.id,
-        pickup_address: '123 Healthcare Ave, Medical District',
+        pickup_address: pickupLocationName,
         status: 'requested'
       }).select().single();
 
